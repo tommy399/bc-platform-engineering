@@ -1,233 +1,209 @@
-Lab 04 – VLAN Security and Best Practices
+# Lab 04 – VLAN Security and Best Practices
 
-Objective:
+**Objective:**  
 Harden a basic VLAN and trunking design by applying common Layer 2 security best practices:
 
-Move the native VLAN away from VLAN 1
+- Move the native VLAN away from VLAN 1  
+- Create a “parking lot” VLAN for unused ports  
+- Disable DTP and statically configure trunk/access modes  
+- Verify configuration with *show* commands  
 
-Create a “parking lot” VLAN for unused ports
+---
 
-Disable DTP and hard-code access/trunk modes
+## Topology
 
-Verify configuration with show commands
-
-Topology
-
-Simple 2-switch campus with a couple of PCs:
-
+```
   [PC1]         [PC2]
     |             |
   Fa0/2         Fa0/2
    SW1 --------- SW2
         Fa0/24
+```
 
+- **SW1 and SW2:** Cisco 2960  
+- **PC1:** VLAN 10 (HR)  
+- **PC2:** VLAN 20 (FINANCE)  
+- **Fa0/24:** Trunk link between SW1 and SW2  
 
-SW1 and SW2: Cisco 2960
+---
 
-PC1: VLAN 10 (HR)
+## Step 1. Build the Topology in Packet Tracer
 
-PC2: VLAN 20 (FINANCE)
+1. Add **2 switches (2960)**  
+2. Add **2 PCs**  
+3. Cable connections:  
+   - PC1 → SW1 Fa0/2 (**Straight-Through**)  
+   - PC2 → SW2 Fa0/2 (**Straight-Through**)  
+   - SW1 Fa0/24 ↔ SW2 Fa0/24 (**Cross-Over**)  
 
-Fa0/24: Trunk link between SW1 and SW2
+Wait until all links show **green/up**.
 
-Step 1. Build the Topology in Packet Tracer
+---
 
-Add:
+## Step 2. Create VLANs and Basic VLAN Assignments
 
-2 switches (2960)
-
-2 PCs
-
-Cable:
-
-PC1 → SW1 Fa0/2 (Copper Straight-Through)
-
-PC2 → SW2 Fa0/2 (Copper Straight-Through)
-
-SW1 Fa0/24 ↔ SW2 Fa0/24 (Copper Cross-Over)
-
-Wait for all links to turn green.
-
-Step 2. Create VLANs and Basic VLAN Assignments
-
-We’ll create VLANs 10 and 20 on both switches and assign access ports.
-
-On SW1
+### On SW1
+```
 SW1> enable
 SW1# configure terminal
 SW1(config)# vlan 10
 SW1(config-vlan)# name HR
-SW1(config-vlan)# exit
 SW1(config)# vlan 20
 SW1(config-vlan)# name FINANCE
-SW1(config-vlan)# exit
 
 ! PC1 in VLAN 10
 SW1(config)# interface fa0/2
 SW1(config-if)# switchport mode access
 SW1(config-if)# switchport access vlan 10
-SW1(config-if)# exit
+```
 
-On SW2
+### On SW2
+```
 SW2> enable
 SW2# configure terminal
 SW2(config)# vlan 10
 SW2(config-vlan)# name HR
-SW2(config-vlan)# exit
 SW2(config)# vlan 20
 SW2(config-vlan)# name FINANCE
-SW2(config-vlan)# exit
 
 ! PC2 in VLAN 20
 SW2(config)# interface fa0/2
 SW2(config-if)# switchport mode access
 SW2(config-if)# switchport access vlan 20
-SW2(config-if)# exit
+```
 
-Step 3. Configure the Basic Trunk (Before Hardening)
+---
 
-On both switches, configure Fa0/24 as a trunk and allow VLANs 10 and 20.
+## Step 3. Configure the Basic Trunk (Before Security Hardening)
 
-! On SW1
+### On SW1
+```
 SW1(config)# interface fa0/24
 SW1(config-if)# switchport mode trunk
 SW1(config-if)# switchport trunk allowed vlan 10,20
-SW1(config-if)# exit
+```
 
-! On SW2
+### On SW2
+```
 SW2(config)# interface fa0/24
 SW2(config-if)# switchport mode trunk
 SW2(config-if)# switchport trunk allowed vlan 10,20
-SW2(config-if)# exit
+```
 
+### Verify
+```
+show interfaces trunk
+```
 
-Verify:
+Expected: Fa0/24 listed as a trunk with VLANs **10,20** allowed.
 
-SW1# show interfaces trunk
-SW2# show interfaces trunk
+---
 
+## Step 4. Introduce Security VLANs (Native VLAN + Parking Lot VLAN)
 
-You should see Fa0/24 as a trunk with VLANs 10 and 20 allowed.
+### On both switches
+```
+vlan 99
+ name NATIVE_VLAN
+vlan 999
+ name PARKING_LOT
+```
 
-Step 4. Introduce Security VLANs (Native + Parking Lot)
+---
 
-Create a native VLAN (e.g., VLAN 99).
+## Step 5. Harden the Trunk (Native VLAN + Disable DTP)
 
-Create a parking lot VLAN for unused ports (e.g., VLAN 999).
+### On both switches
+```
+interface fa0/24
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,99
+ switchport nonegotiate
+```
 
-On both switches:
+**Note:** `switchport nonegotiate` disables DTP; trunking is now **static**.
 
-SW1(config)# vlan 99
-SW1(config-vlan)# name NATIVE_VLAN
-SW1(config-vlan)# exit
-SW1(config)# vlan 999
-SW1(config-vlan)# name PARKING_LOT
-SW1(config-vlan)# exit
+### Verify
+```
+show interfaces fa0/24 switchport
+show interfaces trunk
+```
 
-SW2(config)# vlan 99
-SW2(config-vlan)# name NATIVE_VLAN
-SW2(config-vlan)# exit
-SW2(config)# vlan 999
-SW2(config-vlan)# name PARKING_LOT
-SW2(config-vlan)# exit
+**Expected:**
 
-Step 5. Harden the Trunk (Native VLAN + Disable DTP)
+- Mode: trunk  
+- Native VLAN: **99**  
+- Allowed VLANs: **10,20,99**  
+- DTP: **off / nonegotiate**  
 
-On both switches:
+---
 
-SW1(config)# interface fa0/24
-SW1(config-if)# switchport trunk native vlan 99
-SW1(config-if)# switchport trunk allowed vlan 10,20,99
-SW1(config-if)# switchport nonegotiate
-SW1(config-if)# exit
+## Step 6. Secure Unused Ports (Parking Lot VLAN)
 
-SW2(config)# interface fa0/24
-SW2(config-if)# switchport trunk native vlan 99
-SW2(config-if)# switchport trunk allowed vlan 10,20,99
-SW2(config-if)# switchport nonegotiate
-SW2(config-if)# exit
+Example unused ports: Fa0/3–Fa0/10
 
+### On SW1 and SW2
+```
+interface range fa0/3 - 10
+ switchport mode access
+ switchport access vlan 999
+ shutdown
+```
 
-Note: switchport nonegotiate disables DTP; trunking is static.
+### Verify
+```
+show vlan brief
+show interfaces status
+```
 
-Verify:
+Expected:
 
-SW1# show interfaces fa0/24 switchport
-SW1# show interfaces trunk
+- Ports in VLAN **999**  
+- Ports **administratively down**
 
+---
 
-Check:
+## Step 7. Configure PC IP Addresses and Test
 
-Mode: trunk
+| PC  | VLAN | IP Address       | Subnet Mask     | Gateway |
+|-----|------|------------------|-----------------|---------|
+| PC1 | 10   | 192.168.10.10    | 255.255.255.0   | (blank) |
+| PC2 | 20   | 192.168.20.10    | 255.255.255.0   | (blank) |
 
-Native VLAN: 99
+There is **no routing** in this lab.  
+PCs in different VLANs will **not** ping each other (expected).
 
-Allowed VLANs: 10,20,99
+---
 
-Step 6. Secure Unused Access Ports (Parking Lot VLAN)
+## Verification Checklist
 
-On SW1 and SW2, choose a small range of “unused” ports (for example, Fa0/3 – Fa0/10):
+| Task                 | Command                             | Expected Result                          |
+|----------------------|--------------------------------------|------------------------------------------|
+| VLANs exist          | `show vlan brief`                   | VLANs 10, 20, 99, 999 present            |
+| Native VLAN set      | `show interfaces trunk`             | Native VLAN = 99                         |
+| DTP disabled         | `show interfaces fa0/24 switchport` | DTP: off / nonegotiate                   |
+| Unused ports secured | `show interfaces status`            | Fa0/3–10 in VLAN 999 + shutdown          |
 
-SW1(config)# interface range fa0/3 - 10
-SW1(config-if-range)# switchport mode access
-SW1(config-if-range)# switchport access vlan 999
-SW1(config-if-range)# shutdown
-SW1(config-if-range)# exit
+---
 
-SW2(config)# interface range fa0/3 - 10
-SW2(config-if-range)# switchport mode access
-SW2(config-if-range)# switchport access vlan 999
-SW2(config-if-range)# shutdown
-SW2(config-if-range)# exit
+## Reflection Questions
 
+- Why is it unsafe to leave VLAN 1 as the default and native VLAN?  
+- What is the purpose of a parking lot VLAN?  
+- Why should DTP be disabled on trunk/access ports?  
+- What happens if an attacker plugs into:  
+  - **VLAN 1** vs  
+  - **VLAN 999** ?  
 
-Verify:
+---
 
-SW1# show vlan brief
-SW1# show interfaces status
+## Summary
 
+| Concept           | Description                                                 |
+|-------------------|-------------------------------------------------------------|
+| **Native VLAN**   | Used for untagged traffic; should not be VLAN 1            |
+| **Parking Lot VLAN** | For unused ports; typically shut down                   |
+| **DTP Hardening** | Forces static trunk/access modes; prevents rogue trunking   |
+| **Verification**  | Use `show vlan`, `show interfaces trunk`, `show interfaces status` |
 
-You should see:
-
-VLAN 999 with Fa0/3–Fa0/10 as members.
-
-Ports showing as administratively down.
-
-Step 7. Configure IPs on PCs and Test
-
-On the PCs:
-
-PC	IP Address	Subnet Mask	Gateway
-PC1 (VLAN 10)	192.168.10.10	255.255.255.0	(leave blank)
-PC2 (VLAN 20)	192.168.20.10	255.255.255.0	(leave blank)
-
-There is no routing in this lab. PCs in different VLANs will not ping each other, but this is expected.
-
-Verify:
-
-ping within the same VLAN later if you add another host.
-
-For now, focus on VLAN and trunk security.
-
-Verification Checklist
-Task	Command	Expected Result
-VLANs exist	show vlan brief	VLAN 10, 20, 99, 999 present
-Trunk native VLAN	show interfaces trunk	Native VLAN = 99 on Fa0/24
-DTP disabled	show interfaces fa0/24 switchport	Administrative mode: trunk, Operational: trunk, DTP: off/nonegotiate
-Unused ports secured	show vlan brief / show interfaces status	Unused ports in VLAN 999 and shut
-Reflection Questions
-
-Why is it unsafe to leave VLAN 1 as both default and native VLAN?
-
-What is the purpose of a “parking lot” VLAN?
-
-Why do we disable DTP and force trunk/access modes manually?
-
-What would happen if an attacker plugged into an unused port on VLAN 1 vs VLAN 999?
-
-Summary
-Concept	Description
-Native VLAN	Used for untagged traffic on a trunk; move it off VLAN 1
-Parking Lot VLAN	Dedicated VLAN for unused ports, often shut
-DTP Hardening	Disable dynamic negotiation, use static trunk/access
-Verification	Use show vlan, show interfaces trunk, show interfaces status
+```
