@@ -192,7 +192,7 @@ PCs in different VLANs will **not** ping each other (expected).
 - What is the purpose of a parking lot VLAN?  
 - Why should DTP be disabled on trunk/access ports?  
 - What happens if an attacker plugs into:  
-  - **VLAN 1** vs VLAN 999** ?  
+  - **VLAN 1** vs VLAN 999 ?  
 
 ---
 
