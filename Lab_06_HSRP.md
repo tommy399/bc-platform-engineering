@@ -134,7 +134,6 @@ R1(config)# interface gigabitEthernet0/0.10
 R1(config-subif)# standby 10 ip 192.168.10.1
 R1(config-subif)# standby 10 priority 110
 R1(config-subif)# standby 10 preempt
-R1(config-subif)# standby 10 description HSRP_GROUP_10_ACTIVE
 ```
 
 ### On R2 (Standby)
@@ -143,7 +142,6 @@ R2(config)# interface gigabitEthernet0/0.10
 R2(config-subif)# standby 10 ip 192.168.10.1
 R2(config-subif)# standby 10 priority 100
 R2(config-subif)# standby 10 preempt
-R2(config-subif)# standby 10 description HSRP_GROUP_10_STANDBY
 ```
 
 ---
